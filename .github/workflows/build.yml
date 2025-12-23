@@ -1,0 +1,87 @@
+name: Build XLibre Debian
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:stable
+    
+    steps:
+      - name: Install basic dependencies
+        run: |
+          apt-get update
+          apt-get install -y git git-buildpackage devscripts debhelper build-essential equivs
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Download source packages
+        run: |
+          ./download.sh
+
+      - name: Build xorgproto first (provides x11proto-dev)
+        run: |
+          export DEB_BUILD_OPTIONS="nocheck"
+          cd xorgproto
+          mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
+          gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest"
+          cd ..
+          # Install the built x11proto-dev package
+          dpkg -i x11proto-dev_*.deb || apt-get install -f -y
+
+      - name: Build xlibre-server (provides xserver-xlibre-dev)
+        run: |
+          export DEB_BUILD_OPTIONS="nocheck"
+          cd xlibre-server
+          mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
+          gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest"
+          cd ..
+          # Install the built xserver-xlibre-dev and related packages
+          dpkg -i xserver-xlibre-dev_*.deb xserver-xlibre-common_*.deb xlibre-x11-common_*.deb || apt-get install -f -y
+
+      - name: Build driver packages
+        run: |
+          export DEB_BUILD_OPTIONS="nocheck"
+          DRIVERS="xserver-xlibre-input-elographics xserver-xlibre-input-libinput xserver-xlibre-input-vmmouse xserver-xlibre-input-wacom xserver-xlibre-video-ati xserver-xlibre-video-fbdev xserver-xlibre-video-nouveau xserver-xlibre-video-sisusb xserver-xlibre-video-vmware xserver-xlibre-input-evdev xserver-xlibre-input-synaptics xserver-xlibre-input-void xserver-xlibre-video-amdgpu xserver-xlibre-video-dummy xserver-xlibre-video-intel xserver-xlibre-video-qxl xserver-xlibre-video-vesa xserver-xlibre-video-voodoo xserver-xlibre-input-keyboard xserver-xlibre-input-mouse"
+          for dir in $DRIVERS; do
+            if [ -d "$dir" ]; then
+              echo "Building: $dir"
+              cd "$dir"
+              mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
+              gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest"
+              cd ..
+            fi
+          done
+
+      - name: Build xlibre meta-package
+        run: |
+          export DEB_BUILD_OPTIONS="nocheck"
+          cd xlibre
+          mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
+          gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest"
+          cd ..
+
+      - name: Collect build artifacts
+        run: |
+          mkdir -p build
+          mv *.build *.buildinfo *.changes *.deb *.xz *.gz *.dsc *.udeb build/ 2>/dev/null || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-packages
+          path: build/
+          if-no-files-found: warn
