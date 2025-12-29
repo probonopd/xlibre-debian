@@ -1,4 +1,4 @@
-name: Build XLibre Debian
+name: Build XLibre
 
 on:
   push:
@@ -10,15 +10,39 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
+          # Debian stable - amd64 and arm64
           - runner: ubuntu-24.04
             arch: amd64
+            distro: debian
+            image: debian:stable
           - runner: ubuntu-24.04-arm
             arch: arm64
+            distro: debian
+            image: debian:stable
+          # Devuan stable (daedalus) - amd64 and arm64
+          - runner: ubuntu-24.04
+            arch: amd64
+            distro: devuan
+            image: devuan/devuan:daedalus
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            distro: devuan
+            image: devuan/devuan:daedalus
+          # Ubuntu LTS (24.04 noble) - amd64 and arm64
+          - runner: ubuntu-24.04
+            arch: amd64
+            distro: ubuntu
+            image: ubuntu:24.04
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            distro: ubuntu
+            image: ubuntu:24.04
     runs-on: ${{ matrix.runner }}
     container:
-      image: debian:stable
+      image: ${{ matrix.image }}
     
     steps:
       - name: Install basic dependencies
@@ -42,6 +66,6 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: debian-packages-${{ matrix.arch }}
+          name: ${{ matrix.distro }}-packages-${{ matrix.arch }}
           path: build/*.deb
           if-no-files-found: warn
