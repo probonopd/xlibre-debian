@@ -9,7 +9,14 @@ on:
 
 jobs:
   build:
-    runs-on: [ubuntu-24.04, ubuntu-24.04-arm]
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     container:
       image: debian:stable
     
@@ -35,6 +42,6 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: debian-packages
-          path: build/
+          name: debian-packages-${{ matrix.arch }}
+          path: build/*.deb
           if-no-files-found: warn
