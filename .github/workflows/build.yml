@@ -28,68 +28,9 @@ jobs:
           git config --global user.email "ci@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Download source packages
+      - name: Build
         run: |
-          ./download.sh
-
-      - name: Prepare git branches for all packages
-        run: |
-          for dir in xorgproto xlibre-server xserver-xlibre-input-elographics xserver-xlibre-input-libinput xserver-xlibre-input-vmmouse xserver-xlibre-input-wacom xserver-xlibre-video-ati xserver-xlibre-video-fbdev xserver-xlibre-video-nouveau xserver-xlibre-video-sisusb xserver-xlibre-video-vmware xlibre xserver-xlibre-input-evdev xserver-xlibre-input-synaptics xserver-xlibre-input-void xserver-xlibre-video-amdgpu xserver-xlibre-video-dummy xserver-xlibre-video-intel xserver-xlibre-video-qxl xserver-xlibre-video-vesa xserver-xlibre-video-voodoo xserver-xlibre-input-keyboard xserver-xlibre-input-mouse; do
-            if [ -d "$dir" ]; then
-              echo "Preparing git branches for: $dir"
-              cd "$dir"
-              git fetch origin pristine-tar:pristine-tar || true
-              git fetch origin upstream/latest:upstream/latest || true
-              cd ..
-            fi
-          done
-
-      - name: Build xorgproto first (provides x11proto-dev)
-        run: |
-          export DEB_BUILD_OPTIONS="nocheck"
-          cd xorgproto
-          mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
-          gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest" --git-upstream-branch="upstream/latest" --git-pristine-tar
-          cd ..
-          # Install the built x11proto-dev package
-          dpkg -i x11proto-dev_*.deb || apt-get install -f -y
-
-      - name: Build xlibre-server (provides xserver-xlibre-dev)
-        run: |
-          export DEB_BUILD_OPTIONS="nocheck"
-          cd xlibre-server
-          mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
-          gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest" --git-upstream-branch="upstream/latest" --git-pristine-tar
-          cd ..
-          # Install the built xserver-xlibre-dev and related packages
-          dpkg -i xserver-xlibre-dev_*.deb xserver-xlibre-common_*.deb xlibre-x11-common_*.deb || apt-get install -f -y
-
-      - name: Build driver packages
-        run: |
-          export DEB_BUILD_OPTIONS="nocheck"
-          DRIVERS="xserver-xlibre-input-elographics xserver-xlibre-input-libinput xserver-xlibre-input-vmmouse xserver-xlibre-input-wacom xserver-xlibre-video-ati xserver-xlibre-video-fbdev xserver-xlibre-video-nouveau xserver-xlibre-video-sisusb xserver-xlibre-video-vmware xserver-xlibre-input-evdev xserver-xlibre-input-synaptics xserver-xlibre-input-void xserver-xlibre-video-amdgpu xserver-xlibre-video-dummy xserver-xlibre-video-intel xserver-xlibre-video-qxl xserver-xlibre-video-vesa xserver-xlibre-video-voodoo xserver-xlibre-input-keyboard xserver-xlibre-input-mouse"
-          for dir in $DRIVERS; do
-            if [ -d "$dir" ]; then
-              echo "Building: $dir"
-              cd "$dir"
-              mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
-              gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest" --git-upstream-branch="upstream/latest" --git-pristine-tar
-              cd ..
-            fi
-          done
-
-      - name: Build xlibre meta-package
-        run: |
-          export DEB_BUILD_OPTIONS="nocheck"
-          cd xlibre
-          mk-build-deps --install --remove --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' debian/control
-          gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest" --git-upstream-branch="upstream/latest" --git-pristine-tar
-          cd ..
-
-      - name: Collect build artifacts
-        run: |
-          mkdir -p build
-          mv *.build *.buildinfo *.changes *.deb *.xz *.gz *.dsc *.udeb build/ 2>/dev/null || true
+          make
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
