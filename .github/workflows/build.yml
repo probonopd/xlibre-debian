@@ -26,11 +26,11 @@ jobs:
           - runner: ubuntu-24.04
             arch: amd64
             distro: devuan
-            image: devuan/devuan:daedalus
-          - runner: ubuntu-24.04-arm
-            arch: arm64
-            distro: devuan
-            image: devuan/devuan:daedalus
+            image: devuan/devuan:excalibur
+          ##- runner: ubuntu-24.04-arm
+          ##  arch: arm64
+          ##  distro: devuan
+          ##  image: devuan/devuan:excalibur
           # Ubuntu LTS (24.04 noble) - amd64 and arm64
           - runner: ubuntu-24.04
             arch: amd64
