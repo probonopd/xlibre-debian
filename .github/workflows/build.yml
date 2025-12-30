@@ -92,7 +92,7 @@ jobs:
       - name: Build
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          make
+          make FAILFAST=false
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
