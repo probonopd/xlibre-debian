@@ -1,0 +1,102 @@
+name: Build XLibre
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Debian stable - amd64 and arm64
+          - runner: ubuntu-24.04
+            arch: amd64
+            distro: debian
+            image: debian:stable
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            distro: debian
+            image: debian:stable
+
+          # Devuan stable (Excalibur) - amd64 # FIXME: Find or make a arm64 Docker container
+          - runner: ubuntu-24.04
+            arch: amd64
+            distro: devuan
+            image: devuan/devuan:excalibur
+
+          # Ubuntu LTS (24.04 noble) - amd64 and arm64
+          - runner: ubuntu-24.04
+            arch: amd64
+            distro: ubuntu
+            image: ubuntu:24.04
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            distro: ubuntu
+            image: ubuntu:24.04
+
+    runs-on: ${{ matrix.runner }}
+
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+      - name: Install basic dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y \
+            git \
+            git-buildpackage \
+            devscripts \
+            debhelper \
+            build-essential \
+            equivs \
+            pristine-tar \
+            pbuilder
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Configure pbuilder (non-interactive)
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+
+          case "${{ matrix.distro }}" in
+            debian)
+              MIRROR="http://deb.debian.org/debian"
+              ;;
+            ubuntu)
+              MIRROR="http://archive.ubuntu.com/ubuntu"
+              ;;
+            devuan)
+              MIRROR="http://deb.devuan.org/merged"
+              ;;
+          esac
+
+          cat > /etc/pbuilderrc <<EOF
+          MIRRORSITE="$MIRROR"
+          DEBOOTSTRAPOPTS=(--variant=buildd)
+          EOF
+
+      - name: Build
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          make FAILFAST=false
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.distro }}-packages-${{ matrix.arch }}
+          path: build/*.deb
+          if-no-files-found: warn
