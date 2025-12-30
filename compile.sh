@@ -69,9 +69,6 @@ for dir in $TO_BUILD; do
         # don't sign packages, they will be signed in a repo.
         if ! gbp buildpackage --git-builder="debuild -i -I -us -uc" --git-debian-branch="xlibre/latest" --git-upstream-branch="upstream/latest" --git-pristine-tar; then
             echo -e "\e[31mFailed to build package\e[0m: $dir"
-            if [ "$FAILFAST" = "true" ]; then
-                exit 1
-            fi
         fi
 
         cd "$ORIGINAL_DIR" || { echo "Failed to return to original directory"; exit 1; }
